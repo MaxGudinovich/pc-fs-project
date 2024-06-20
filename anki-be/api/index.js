@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser');
 const User = require('../models/user');
 const Card = require('../models/card');
 const Group = require('../models/group');
+const cors = require('cors');
 
 const app = express();
 app.use(bodyParser.json());
@@ -25,25 +26,41 @@ mongoose.connect(MONGODB_URI, {
   useUnifiedTopology: true,
 });
 
+app.use(
+  cors({
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true, // Включить передачу учетных данных
+  })
+);
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Origin', 'http://localhost:5173'); // Указываете ваш фронтенд-домен
   res.header('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS,POST,PUT');
   res.header(
     'Access-Control-Allow-Headers',
     'Origin, X-Requested-With, Content-Type, Accept, Authorization'
   );
-  next();
+  res.header('Access-Control-Allow-Credentials', 'true'); // Разрешаете отправку учетных данных
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200); // Отправляете положительный ответ на предварительный запрос
+  } else {
+    next();
+  }
 });
 
 const refreshTokens = [];
 
 // Функция генерации рефреш токена
 const generateRefreshToken = (user) => {
-  return jwt.sign(
-    { id: user._id, username: user.username },
-    REFRESH_TOKEN_SECRET,
-    { expiresIn: '7d' }
-  );
+  return jwt.sign(user, REFRESH_TOKEN_SECRET);
+};
+
+// Функция генерации access токена
+
+const generateAccessToken = (user) => {
+  return jwt.sign(user, JWT_SECRET, { expiresIn: '1m' });
 };
 
 // Регистрация нового пользователя
@@ -83,9 +100,12 @@ app.post('/login', async (req, res) => {
       const token = jwt.sign(
         { id: user._id, username: user.username },
         JWT_SECRET,
-        { expiresIn: '60m' }
+        { expiresIn: '1m' }
       );
-      const refreshToken = generateRefreshToken(user); // Генерация рефреш токена
+      const refreshToken = generateRefreshToken({
+        id: user._id,
+        username: user.username,
+      });
       refreshTokens.push(refreshToken); // Добавление рефреш токена в массив или хранилище
 
       // Установка рефреш токена в HTTP-only cookie
@@ -123,6 +143,39 @@ const authenticateJWT = (req, res, next) => {
   }
 };
 
+// Обновление токена
+
+app.post('/token', (req, res) => {
+  const refreshToken =
+    req.headers.authorization && req.headers.authorization.split(' ')[1];
+
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'Refresh token not found' });
+  }
+
+  try {
+    // Проверяем валидность refresh token
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    console.log('decoded:', decoded);
+
+    // Если токен валиден, генерируем новый access token и refresh token
+    const accessToken = generateAccessToken({
+      id: decoded.id, // Используем decoded.id вместо decoded._id
+      username: decoded.username,
+    });
+    const newRefreshToken = generateRefreshToken({
+      id: decoded.id, // Используем decoded.id вместо decoded._id
+      username: decoded.username,
+    });
+
+    // Возвращаем новые токены в ответе
+    res.json({ accessToken, refreshToken: newRefreshToken });
+  } catch (err) {
+    console.error(err);
+    res.status(403).json({ error: 'Invalid refresh token' });
+  }
+});
+
 // Создание новой карточки
 app.post('/groups', authenticateJWT, async (req, res) => {
   const { word, translate, groupName } = req.body;
@@ -134,12 +187,14 @@ app.post('/groups', authenticateJWT, async (req, res) => {
   }
 
   try {
-    // Проверяем, существует ли группа с указанным именем
-    let group = await Group.findOne({ groupName });
+    const userId = req.user.id;
+
+    // Проверяем, существует ли группа с указанным именем и созданная текущим пользователем
+    let group = await Group.findOne({ groupName, createdBy: userId });
 
     // Если группа не существует, создаем новую
     if (!group) {
-      group = new Group({ groupName, createdBy: req.user.id });
+      group = new Group({ groupName, createdBy: userId });
     }
 
     // Создаем новую карточку
@@ -181,6 +236,8 @@ app.get('/groups', authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id; // Получаем ID пользователя из JWT
     const groups = await Group.find({ createdBy: userId }).populate('cards');
+    console.log('user id:', userId);
+    console.log(req.user);
     res.json(groups);
   } catch (err) {
     res.status(500).json({ error: err.message });

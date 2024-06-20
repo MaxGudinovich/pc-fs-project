@@ -17,11 +17,15 @@
       </form>
     </div>
   </div>
+  <button @click="fetchGroups">GET GROUPS</button>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import axios from 'axios'
+import { jwtDecode } from 'jwt-decode'
+import { useUserStore } from '@/stores/user'
+import { requestWithTokenValidation } from '@/helpers/requestWithTokenValidation'
 
 const username = ref('')
 const password = ref('')
@@ -44,12 +48,8 @@ function handleRegister() {
 }
 
 function handleLogin() {
-  console.log(
-    'Submitting with username:',
-    usernameLogin.value,
-    'and password:',
-    passwordLogin.value
-  )
+  const userStore = useUserStore()
+
   axios
     .post('http://localhost:3000/login', {
       username: usernameLogin.value,
@@ -57,11 +57,36 @@ function handleLogin() {
     })
     .then((response) => {
       console.log(response)
+
+      const token = response.data.token
+      const refreshToken = response.data.refreshToken
+
+      const decodedToken: any = jwtDecode(token)
+      console.log(decodedToken)
+      const { id, username } = decodedToken
+      userStore.setUser({ id, username })
+      localStorage.setItem('access', token)
+      localStorage.setItem('refresh', refreshToken)
     })
     .catch((error) => {
       console.error(error)
     })
 }
+
+const fetchGroups = async () => {
+  try {
+    const response = await requestWithTokenValidation({
+      method: 'get',
+      url: '/groups'
+    })
+
+    console.log(response)
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+/* fetchGroups() */
 </script>
 
 <style lang="scss" scoped>

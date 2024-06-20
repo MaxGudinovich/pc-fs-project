@@ -18,7 +18,6 @@ const routes: Array<RouteRecordRaw> = [
         name: 'About',
         component: AboutView
       }
-      // Другие маршруты
     ]
   }
 ]

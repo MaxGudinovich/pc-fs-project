@@ -29,7 +29,7 @@ mongoose.connect(MONGODB_URI, {
 app.use(
   cors({
     origin: 'http://localhost:5173',
-    methods: ['GET', 'POST', 'PUT'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true, // Включить передачу учетных данных
   })
@@ -54,13 +54,12 @@ const refreshTokens = [];
 
 // Функция генерации рефреш токена
 const generateRefreshToken = (user) => {
-  return jwt.sign(user, REFRESH_TOKEN_SECRET);
+  return jwt.sign(user, REFRESH_TOKEN_SECRET, { expiresIn: '10d' });
 };
 
 // Функция генерации access токена
-
 const generateAccessToken = (user) => {
-  return jwt.sign(user, JWT_SECRET, { expiresIn: '1m' });
+  return jwt.sign(user, JWT_SECRET, { expiresIn: '10m' });
 };
 
 // Регистрация нового пользователя
@@ -144,7 +143,6 @@ const authenticateJWT = (req, res, next) => {
 };
 
 // Обновление токена
-
 app.post('/token', (req, res) => {
   const refreshToken =
     req.headers.authorization && req.headers.authorization.split(' ')[1];
@@ -154,21 +152,17 @@ app.post('/token', (req, res) => {
   }
 
   try {
-    // Проверяем валидность refresh token
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    console.log('decoded:', decoded);
 
-    // Если токен валиден, генерируем новый access token и refresh token
     const accessToken = generateAccessToken({
-      id: decoded.id, // Используем decoded.id вместо decoded._id
+      id: decoded.id,
       username: decoded.username,
     });
     const newRefreshToken = generateRefreshToken({
-      id: decoded.id, // Используем decoded.id вместо decoded._id
+      id: decoded.id,
       username: decoded.username,
     });
 
-    // Возвращаем новые токены в ответе
     res.json({ accessToken, refreshToken: newRefreshToken });
   } catch (err) {
     console.error(err);
@@ -176,9 +170,34 @@ app.post('/token', (req, res) => {
   }
 });
 
-// Создание новой карточки
+// Создание группы
 app.post('/groups', authenticateJWT, async (req, res) => {
-  const { word, translate, groupName } = req.body;
+  const { groupName } = req.body;
+
+  if (!groupName) {
+    return res.status(400).json({ error: 'groupName is required' });
+  }
+
+  try {
+    const userId = req.user.id;
+
+    let group = await Group.findOne({ groupName, createdBy: userId });
+
+    if (!group) {
+      group = new Group({ groupName, createdBy: userId });
+    }
+
+    await group.save();
+
+    res.status(201).json(group);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Создание карточки
+app.post('/cards', authenticateJWT, async (req, res) => {
+  const { word, translate, groupName, description } = req.body;
 
   if (!word || !translate || !groupName) {
     return res
@@ -189,30 +208,23 @@ app.post('/groups', authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Проверяем, существует ли группа с указанным именем и созданная текущим пользователем
-    let group = await Group.findOne({ groupName, createdBy: userId });
-
-    // Если группа не существует, создаем новую
-    if (!group) {
-      group = new Group({ groupName, createdBy: userId });
-    }
-
-    // Создаем новую карточку
     const newCard = new Card({
       word,
       translate,
-      groupName,
-      createdBy: req.user.id, // Используйте userId из JWT
+      description,
+      createdBy: userId,
     });
 
-    // Добавляем карточку в группу
-    group.cards.push(newCard);
+    const group = await Group.findOne({ groupName, createdBy: userId });
 
-    // Сохраняем изменения в группе
-    await group.save();
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
 
-    // Сохраняем новую карточку
+    group.cards.push(newCard._id);
+
     await newCard.save();
+    await group.save();
 
     res.status(201).json(newCard);
   } catch (err) {
@@ -220,8 +232,34 @@ app.post('/groups', authenticateJWT, async (req, res) => {
   }
 });
 
-// Получение всех карточек
+app.patch('/cards/:id', authenticateJWT, async (req, res) => {
+  const { word, translate, description } = req.body;
 
+  if (!word || !translate) {
+    return res.status(400).json({ error: 'Word and translate are required' });
+  }
+
+  try {
+    const userId = req.user.id;
+    const card = await Card.findOne({ _id: req.params.id, createdBy: userId });
+
+    if (!card) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+
+    card.word = word;
+    card.translate = translate;
+    card.description = description;
+
+    await card.save();
+
+    res.json(card);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Получение всех карточек
 app.get('/cards', authenticateJWT, async (req, res) => {
   try {
     const cards = await Card.find({ createdBy: req.user.id });
@@ -234,11 +272,25 @@ app.get('/cards', authenticateJWT, async (req, res) => {
 // Получение группы юзера
 app.get('/groups', authenticateJWT, async (req, res) => {
   try {
-    const userId = req.user.id; // Получаем ID пользователя из JWT
+    const userId = req.user.id;
     const groups = await Group.find({ createdBy: userId }).populate('cards');
     console.log('user id:', userId);
     console.log(req.user);
     res.json(groups);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//Получение одной группы
+app.get('/groups/:id', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const group = await Group.findOne({
+      createdBy: userId,
+      _id: req.params.id,
+    }).populate('cards');
+    res.json(group);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -29,27 +29,31 @@ api.interceptors.request.use(
   }
 )
 
-// Функция-обертка для выполнения запросов
 export const requestWithTokenValidation = async <T>(
   config: AxiosRequestConfig
 ): Promise<AxiosResponse<T>> => {
   try {
-    let response
-
-    // Проверяем валидность access токена
     if (await isAccessTokenValid()) {
-      response = await api.request<T>(config)
+      const response = await api.request<T>(config)
       return response
     }
 
-    // Если access токен не валиден, пробуем обновить токены
-    await refreshTokens()
+    if (await isRefreshTokenValid()) {
+      await refreshTokens()
 
-    // Повторно выполняем запрос с обновленным access токеном
-    response = await api.request<T>(config)
-    return response
+      const response = await api.request<T>(config)
+      return response
+    }
+
+    throw new Error('Refresh token is invalid')
   } catch (error) {
-    console.error('Request error:', error)
+    if (error instanceof Error && error.message === 'Refresh token is invalid') {
+      localStorage.removeItem('access')
+      localStorage.removeItem('refresh')
+
+      // Перенаправить пользователя на страницу логина
+    }
+
     throw error
   }
 }

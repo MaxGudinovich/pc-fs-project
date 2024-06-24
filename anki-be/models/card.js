@@ -10,9 +10,8 @@ const cardSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    groupName: {
+    description: {
       type: String,
-      required: true,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

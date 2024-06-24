@@ -23,8 +23,6 @@ onMounted(() => {
     const { id, username } = decodedToken
     userStore.setUser({ id, username })
   }
-
-  console.log('Header mounted')
 })
 </script>
 

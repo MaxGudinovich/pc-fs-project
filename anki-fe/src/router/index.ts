@@ -1,9 +1,12 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
-import HomeView from '@/views/HomeView.vue'
-import AboutView from '@/views/AboutView.vue'
+import GroupsView from '@/views/GroupsView.vue'
+import AddView from '@/views/AddView.vue'
 import StudyView from '@/views/StudyView.vue'
 import EditCardView from '@/views/EditCardView.vue'
+import AuthAdminView from '@/views/AuthAdminView.vue'
+import UserAccountView from '@/views/UserAccountView.vue'
+import NotFoundView from '@/views/NotFoundView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -12,13 +15,13 @@ const routes: Array<RouteRecordRaw> = [
     children: [
       {
         path: '',
-        name: 'Home',
-        component: HomeView
+        name: 'Groups',
+        component: GroupsView
       },
       {
-        path: '/about',
-        name: 'About',
-        component: AboutView
+        path: '/add',
+        name: 'Add',
+        component: AddView
       },
       {
         path: '/study/:id',
@@ -29,6 +32,21 @@ const routes: Array<RouteRecordRaw> = [
         path: '/edit/:id',
         name: 'Edit',
         component: EditCardView
+      },
+      {
+        path: 'register-admin',
+        name: 'RegisterAdmin',
+        component: AuthAdminView
+      },
+      {
+        path: 'account',
+        name: 'Account',
+        component: UserAccountView
+      },
+      {
+        path: '/:pathMatch(.*)*',
+        name: 'NotFound',
+        component: NotFoundView
       }
     ]
   }

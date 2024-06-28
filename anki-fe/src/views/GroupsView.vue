@@ -1,8 +1,7 @@
 <template>
-  <div class="homeContainer">
-    <h1>Groups</h1>
+  <div class="groupsContainer">
     <GroupCard v-for="group in groups" :key="group._id" :group="group" />
-    <button @click="handleAddNewGroup">Add new group</button>
+    <PrimaryButton @click="handleAddNewGroup">Add new group</PrimaryButton>
   </div>
 </template>
 
@@ -12,6 +11,7 @@ import { onMounted, ref } from 'vue'
 import { useGroupsStore } from '@/stores/groups'
 import { Group } from '@/helpers/types'
 import GroupCard from '@/components/GroupCard.vue'
+import PrimaryButton from '@/ui/PrimaryButton.vue'
 
 const groups = ref<Group[]>([])
 const groupName = ref('')
@@ -63,10 +63,10 @@ const fetchGroups = async () => {
 </script>
 
 <style lang="scss" scoped>
-.homeContainer {
+.groupsContainer {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 50px;
+  padding: 50px 15%;
 }
 </style>

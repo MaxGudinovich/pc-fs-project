@@ -1,0 +1,107 @@
+<template>
+  <div class="auth-container">
+    <div class="registration">
+      <h3>registration</h3>
+      <form class="form" @submit.prevent="handleRegister">
+        <input type="text" placeholder="username" v-model="username" />
+        <input type="password" placeholder="password" v-model="password" />
+        <input type="text" placeholder="secret key" v-model="secretKey" />
+        <button type="submit">Register</button>
+      </form>
+    </div>
+    <div class="login">
+      <h3>login</h3>
+      <form class="form" @submit.prevent="handleLogin">
+        <input type="text" placeholder="username" v-model="usernameLogin" />
+        <input type="password" placeholder="password" v-model="passwordLogin" />
+        <button type="submit">Login</button>
+      </form>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import axios from 'axios'
+import { jwtDecode } from 'jwt-decode'
+import { useUserStore } from '@/stores/user'
+
+const username = ref('')
+const password = ref('')
+const secretKey = ref('')
+const usernameLogin = ref('')
+const passwordLogin = ref('')
+
+function handleRegister() {
+  console.log('Submitting with username:', username.value, 'and password:', password.value)
+  axios
+    .post('http://localhost:3000/register-admin', {
+      username: username.value,
+      password: password.value,
+      secretKey: secretKey.value
+    })
+    .then((response) => {
+      console.log(response)
+    })
+    .catch((error) => {
+      console.error(error)
+    })
+}
+
+function handleLogin() {
+  const userStore = useUserStore()
+
+  axios
+    .post('http://localhost:3000/login', {
+      username: usernameLogin.value,
+      password: passwordLogin.value
+    })
+    .then((response) => {
+      console.log(response)
+
+      const token = response.data.token
+      const refreshToken = response.data.refreshToken
+
+      const decodedToken: any = jwtDecode(token)
+      console.log(decodedToken)
+      const { id, username, role } = decodedToken
+      userStore.setUser({ id, username, role })
+      localStorage.setItem('access', token)
+      localStorage.setItem('refresh', refreshToken)
+    })
+    .catch((error) => {
+      console.error(error)
+    })
+}
+</script>
+
+<style scoped>
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.registration {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  height: 100%;
+  background-color: #f0f0f0;
+}
+.login {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  height: 100%;
+  background-color: #f0f0f0;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  padding: 20px;
+  gap: 10px;
+}
+</style>

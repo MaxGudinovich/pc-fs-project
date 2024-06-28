@@ -9,3 +9,11 @@ export const useGroupsStore = defineStore('groups', () => {
   }
   return { groups, setGroups }
 })
+
+export const useCurrentGroupStore = defineStore('currentGroup', () => {
+  const group = ref({} as Group | null)
+  const setGroup = (newGroup: Group | null) => {
+    group.value = newGroup
+  }
+  return { group, setGroup }
+})

@@ -77,7 +77,55 @@ app.post('/register', async (req, res) => {
   try {
     const newUser = new User({ username, password: hashedPassword });
     await newUser.save();
-    res.status(201).json({ message: 'User created' });
+    const token = generateAccessToken({
+      id: newUser._id,
+      username: newUser.username,
+      role: newUser.role,
+    });
+    const refreshToken = generateRefreshToken({
+      id: newUser._id,
+      username: newUser.username,
+      role: newUser.role,
+    });
+    refreshTokens.push(refreshToken); // Добавление рефреш токена в массив или хранилище
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+    });
+
+    // Возврат обоих токенов в ответе
+    res.json({ token, refreshToken });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Регистрация администратора
+
+app.post('/register-admin', async (req, res) => {
+  const { username, password, secretKey } = req.body;
+
+  if (secretKey !== process.env.SECRET_KEY) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  if (!username || !password) {
+    return res
+      .status(400)
+      .json({ error: 'Username and password are required' });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  try {
+    const newUser = new User({
+      username,
+      password: hashedPassword,
+      role: 'admin',
+    });
+    await newUser.save();
+    res.status(201).json({ message: 'Admin created' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -97,13 +145,14 @@ app.post('/login', async (req, res) => {
     const user = await User.findOne({ username });
     if (user && (await bcrypt.compare(password, user.password))) {
       const token = jwt.sign(
-        { id: user._id, username: user.username },
+        { id: user._id, username: user.username, role: user.role },
         JWT_SECRET,
         { expiresIn: '1m' }
       );
       const refreshToken = generateRefreshToken({
         id: user._id,
         username: user.username,
+        role: user.role,
       });
       refreshTokens.push(refreshToken); // Добавление рефреш токена в массив или хранилище
 
@@ -157,10 +206,12 @@ app.post('/token', (req, res) => {
     const accessToken = generateAccessToken({
       id: decoded.id,
       username: decoded.username,
+      role: decoded.role,
     });
     const newRefreshToken = generateRefreshToken({
       id: decoded.id,
       username: decoded.username,
+      role: decoded.role,
     });
 
     res.json({ accessToken, refreshToken: newRefreshToken });
@@ -264,6 +315,18 @@ app.get('/cards', authenticateJWT, async (req, res) => {
   try {
     const cards = await Card.find({ createdBy: req.user.id });
     res.json(cards);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//Получшние одной карточки
+
+app.get('/cards/:id', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const card = await Card.findOne({ _id: req.params.id, createdBy: userId });
+    res.json(card);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

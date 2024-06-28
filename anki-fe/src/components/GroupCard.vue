@@ -24,27 +24,23 @@ const handleClick = () => {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
   border: 1px solid #ddd;
-  background-color: lightgray;
   cursor: pointer;
   padding: 20px;
-  margin: 20px;
-  width: 80%;
-  height: 70px;
-  border-radius: 8px;
+  margin: 15px;
+  width: 100%;
+  height: 60px;
+  border-radius: 5px;
   border: none;
   box-shadow: 0 0 2px black;
 
   &--title {
-    font-size: 40px;
-    font-weight: bold;
-    color: lightblue;
-    text-shadow: 3px 3px 5px rgba(0, 0, 0, 0.5);
+    font-size: 28px;
+    color: var(--gray-700);
   }
 
   &:hover {
-    background-color: slategrey;
+    background-color: var(--gray-200);
   }
 }
 </style>

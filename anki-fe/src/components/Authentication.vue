@@ -1,10 +1,10 @@
 <template>
-  <div class="auth-container">
+  <div class="authContainer">
     <SingUp v-if="isSignUp" />
     <SignIn v-if="!isSignUp" />
-    <button @click="isSignUp = !isSignUp">
+    <PrimaryButton class="authContainer--btn" @click="isSignUp = !isSignUp">
       {{ isSignUp ? 'to Login' : 'to Registration' }}
-    </button>
+    </PrimaryButton>
   </div>
 </template>
 
@@ -12,16 +12,27 @@
 import SignIn from '@/components/SignIn.vue'
 import SingUp from '@/components/SignUp.vue'
 import { ref } from 'vue'
+import PrimaryButton from '@/ui/PrimaryButton.vue'
 
 const isSignUp = ref(false)
 </script>
 
-<style scoped>
-.auth-container {
+<style lang="scss" scoped>
+.authContainer {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 200px;
+  margin: 0 auto;
+  margin-top: 150px;
+  width: 370px;
+  height: 400px;
+  padding: 20px;
+  border: 1px solid var(--gray-500);
+  border-radius: 8px;
+
+  &--btn {
+    margin-top: 50px;
+  }
 }
 </style>

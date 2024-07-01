@@ -1,21 +1,31 @@
 <template>
   <div class="studyContainer">
-    <StudyCard v-if="group && group.cards.length > 0" :card="group.cards[currentCardIndex]" />
-    <div
-      class="studyContainer--buttons"
-      v-if="group && group.cards.length > 0"
-      :card="group.cards[currentCardIndex]"
-    >
-      <PrimaryButton @click="editCard" v-if="group && group.cards.length > 0"
-        >Edit card</PrimaryButton
+    <template v-if="loading"></template>
+    <template v-else>
+      <StudyCard
+        v-if="group && group.cards.length > 0"
+        :card="group.cards[currentCardIndex]"
+        :isShowingTranslate
+        :handleShowAnswer
+      />
+      <div
+        class="studyContainer--buttons"
+        v-if="group && group.cards.length > 0"
+        :card="group.cards[currentCardIndex]"
       >
-      <PrimaryButton @click="nextCard" v-if="group && group.cards.length > 0"
-        >Next card</PrimaryButton
-      >
-      <PrimaryButton @click="navigateToAddCards">Add cards</PrimaryButton>
-    </div>
-    <p v-else class="studyContainer--empty">There are no cards in this group</p>
-    <PrimaryButton v-else @click="navigateToAddCards">Add cards</PrimaryButton>
+        <PrimaryButton @click="editCard" v-if="group && group.cards.length > 0"
+          >Edit card</PrimaryButton
+        >
+        <PrimaryButton @click="nextCard" v-if="group && group.cards.length > 0"
+          >Next card</PrimaryButton
+        >
+        <PrimaryButton @click="navigateToAddCards">Add cards</PrimaryButton>
+      </div>
+      <div v-else class="studyContainer--empty">
+        <p>There are no cards in this group</p>
+        <PrimaryButton @click="navigateToAddCards">Add cards</PrimaryButton>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -33,7 +43,13 @@ const router = useRouter()
 const group = ref<Group | null>(null)
 const id = route.params.id
 const currentCardIndex = ref(0)
+const isShowingTranslate = ref(false)
 const currentGroup = useCurrentGroupStore()
+const loading = ref(true)
+
+const handleShowAnswer = () => {
+  isShowingTranslate.value = !isShowingTranslate.value
+}
 
 onMounted(() => {
   const initialIndex = 0
@@ -71,6 +87,8 @@ const fetchGroup = async () => {
     currentGroup.setGroup(group.value)
   } catch (error) {
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -84,6 +102,7 @@ const nextCard = () => {
     sessionStorage.setItem('currentCardIndex', currentCardIndex.value.toString())
     sessionStorage.setItem('currentCardIndexAfterEdit', currentCardIndex.value.toString())
   }
+  isShowingTranslate.value = false
 }
 
 const editCard = () => {
@@ -101,19 +120,23 @@ const navigateToAddCards = () => {
 
 <style lang="scss" scoped>
 .studyContainer {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 50px 15%;
-  height: 100vh;
 
   &--buttons {
     display: flex;
     gap: 20px;
-    margin-top: 30%;
+    margin-top: 150px;
   }
 
   &--empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
     margin-top: 20px;
     margin-bottom: 20px;
     font-size: 18px;

@@ -42,6 +42,7 @@ const handleNavToHome = () => {
   background-color: var(--gray-200);
   padding: 10px 15%;
   height: 70px;
+  border-bottom: 1px solid var(--gray-300);
 
   &--link {
     color: var(--gray-600);

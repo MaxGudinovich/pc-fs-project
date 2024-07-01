@@ -87,14 +87,13 @@ app.post('/register', async (req, res) => {
       username: newUser.username,
       role: newUser.role,
     });
-    refreshTokens.push(refreshToken); // Добавление рефреш токена в массив или хранилище
+    refreshTokens.push(refreshToken);
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: true,
     });
 
-    // Возврат обоих токенов в ответе
     res.json({ token, refreshToken });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -125,7 +124,25 @@ app.post('/register-admin', async (req, res) => {
       role: 'admin',
     });
     await newUser.save();
-    res.status(201).json({ message: 'Admin created' });
+    const token = generateAccessToken({
+      id: newUser._id,
+      username: newUser.username,
+      role: newUser.role,
+    });
+    const refreshToken = generateRefreshToken({
+      id: newUser._id,
+      username: newUser.username,
+      role: newUser.role,
+    });
+    refreshTokens.push(refreshToken);
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+    });
+
+    // Возврат обоих токенов в ответе
+    res.json({ token, refreshToken });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -248,17 +265,34 @@ app.post('/groups', authenticateJWT, async (req, res) => {
 
 // Создание карточки
 app.post('/cards', authenticateJWT, async (req, res) => {
-  const { word, translate, groupName, description } = req.body;
+  const { word, translate, groupName, description, groupId } = req.body;
 
-  if (!word || !translate || !groupName) {
+  if (!word || !translate || !groupName || !groupId) {
     return res
       .status(400)
-      .json({ error: 'Word, translate, and groupName are required' });
+      .json({ error: 'Word, translate, groupName, and groupId are required' });
   }
 
   try {
+    const isAdmin = req.user.role === 'admin';
     const userId = req.user.id;
 
+    let group;
+
+    // Если администратор, находим группу по ID
+    if (isAdmin) {
+      group = await Group.findOne({ _id: groupId });
+    } else {
+      // Если не администратор, находим группу по имени и ID пользователя
+      group = await Group.findOne({ groupName, createdBy: userId });
+    }
+
+    // Если группа не найдена
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Создаем новую карточку
     const newCard = new Card({
       word,
       translate,
@@ -266,14 +300,10 @@ app.post('/cards', authenticateJWT, async (req, res) => {
       createdBy: userId,
     });
 
-    const group = await Group.findOne({ groupName, createdBy: userId });
-
-    if (!group) {
-      return res.status(404).json({ error: 'Group not found' });
-    }
-
+    // Добавляем ID карточки в массив карт группы
     group.cards.push(newCard._id);
 
+    // Сохраняем карточку и группу
     await newCard.save();
     await group.save();
 
@@ -291,8 +321,15 @@ app.patch('/cards/:id', authenticateJWT, async (req, res) => {
   }
 
   try {
+    const admin = req.user.role === 'admin';
     const userId = req.user.id;
-    const card = await Card.findOne({ _id: req.params.id, createdBy: userId });
+    let card;
+
+    if (admin) {
+      card = await Card.findOne({ _id: req.params.id });
+    } else {
+      card = await Card.findOne({ _id: req.params.id, createdBy: userId });
+    }
 
     if (!card) {
       return res.status(404).json({ error: 'Card not found' });
@@ -324,8 +361,14 @@ app.get('/cards', authenticateJWT, async (req, res) => {
 
 app.get('/cards/:id', authenticateJWT, async (req, res) => {
   try {
+    const admin = req.user.role === 'admin';
     const userId = req.user.id;
-    const card = await Card.findOne({ _id: req.params.id, createdBy: userId });
+    let card;
+    if (admin) {
+      card = await Card.findOne({ _id: req.params.id });
+    } else {
+      card = await Card.findOne({ _id: req.params.id, createdBy: userId });
+    }
     res.json(card);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -345,14 +388,74 @@ app.get('/groups', authenticateJWT, async (req, res) => {
   }
 });
 
+// Получение администратором всех групп
+
+app.get('/groups-all', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const groups = await Group.find().populate('cards');
+    res.json(groups);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Удаление группы юзера
+
+app.delete('/groups/:id', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const groupId = req.params.id;
+    const isAdmin = req.user.role === 'admin';
+
+    console.log('Deleting group with ID:', groupId, 'by user ID:', userId);
+
+    let group;
+
+    if (isAdmin) {
+      // Если пользователь администратор, удаляем группу по ID
+      group = await Group.findOneAndDelete({
+        _id: groupId,
+      });
+    } else {
+      // Если пользователь не администратор, удаляем группу, созданную этим пользователем
+      group = await Group.findOneAndDelete({
+        createdBy: userId,
+        _id: groupId,
+      });
+    }
+
+    if (!group) {
+      return res.status(404).json({
+        error: 'Group not found or you do not have permission to delete it',
+      });
+    }
+
+    res.json({ message: 'Group was deleted successfully', group });
+  } catch (err) {
+    console.error('Error deleting group:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 //Получение одной группы
 app.get('/groups/:id', authenticateJWT, async (req, res) => {
   try {
+    const admin = req.user.role === 'admin';
     const userId = req.user.id;
-    const group = await Group.findOne({
-      createdBy: userId,
-      _id: req.params.id,
-    }).populate('cards');
+    let group;
+
+    if (admin) {
+      group = await Group.findOne({
+        _id: req.params.id,
+      }).populate('cards');
+    } else {
+      group = await Group.findOne({
+        createdBy: userId,
+        _id: req.params.id,
+      }).populate('cards');
+    }
+
     res.json(group);
   } catch (err) {
     res.status(500).json({ error: err.message });

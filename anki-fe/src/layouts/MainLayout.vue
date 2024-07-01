@@ -1,7 +1,6 @@
 <template>
-  <div>
-    <Header />
-    <main>
+  <div class="main-layout">
+    <main class="main-content">
       <ProtectedRoute>
         <router-view />
       </ProtectedRoute>
@@ -10,8 +9,19 @@
 </template>
 
 <script setup lang="ts">
-import Header from '@/components/Header.vue'
 import ProtectedRoute from '@/components/ProtectedRoute.vue'
 </script>
 
-<style scoped></style>
+<style lang="scss" scoped>
+.main-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+</style>

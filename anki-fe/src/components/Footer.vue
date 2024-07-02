@@ -1,5 +1,5 @@
 <template>
-  <div class="footer">Footer</div>
+  <div class="footer">Created by Maksym Hudinovych</div>
 </template>
 
 <script setup lang="ts"></script>

@@ -1,10 +1,25 @@
 <template>
-  <div>
-    <form @submit.prevent="handleSubmit">
-      <input type="text" placeholder="word" v-model="word" />
-      <input type="text" placeholder="translate" v-model="translate" />
-      <input type="text" placeholder="description" v-model="description" />
-      <button type="submit">Submit</button>
+  <div class="editContainer">
+    <form @submit.prevent="handleSubmit" class="editContainer--form">
+      <PrimaryInput
+        class="editContainer--form-input"
+        type="text"
+        placeholder="word"
+        v-model:modelValue="word"
+      />
+      <PrimaryInput
+        class="editContainer--form-input"
+        type="text"
+        placeholder="translate"
+        v-model:modelValue="translate"
+      />
+      <PrimaryInput
+        class="editContainer--form-input"
+        type="text"
+        placeholder="description"
+        v-model:modelValue="description"
+      />
+      <PrimaryButton type="submit">Submit</PrimaryButton>
     </form>
   </div>
 </template>
@@ -15,6 +30,8 @@ import { requestWithTokenValidation } from '@/helpers/requestWithTokenValidation
 import { useRoute, useRouter } from 'vue-router'
 import { Card } from '@/helpers/types'
 import { useCurrentGroupStore } from '@/stores/groups'
+import PrimaryInput from '@/ui/PrimaryInput.vue'
+import PrimaryButton from '@/ui/PrimaryButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,4 +88,20 @@ const handleSubmit = async () => {
 }
 </script>
 
-<style scoped></style>
+<style lang="scss" scoped>
+.editContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  &--form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    &-input {
+      margin: 10px;
+    }
+  }
+}
+</style>
